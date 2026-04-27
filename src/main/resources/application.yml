@@ -1,0 +1,83 @@
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200 # 保证200并发
+      min-spare: 20
+    accept-count: 200
+
+spring:
+  application:
+    name: government-writting
+  profiles:
+    active: dev
+  # 数据库配置
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: root
+
+  # Redis配置
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    password: 
+    database: 0
+    lettuce:
+      pool:
+        max-active: 200
+        max-wait: -1ms
+        max-idle: 10
+        min-idle: 0
+
+  # SSO Oauth2 配置 (认证中心给出的配置放这里)
+  security:
+    oauth2:
+      client:
+        registration:
+          sso-client:
+            client-id: your-client-id
+            client-secret: your-client-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile
+        provider:
+          sso-client:
+            authorization-uri: http://sso.example.com/oauth2/authorize
+            token-uri: http://sso.example.com/oauth2/token
+            user-info-uri: http://sso.example.com/oauth2/userinfo
+            user-name-attribute: username
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  # MyBatis Plus
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+jodconverter:
+  local:
+    enabled: true
+    office-home: C:/Program Files/LibreOffice
+    max-tasks-per-process: 10
+    port-numbers: 2002,2003
+
+# API Keys
+fastgpt:
+  url:
+  key:
+
+volcengine:
+  url:
+  key:

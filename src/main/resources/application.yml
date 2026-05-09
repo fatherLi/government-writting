@@ -71,7 +71,7 @@ jodconverter:
     enabled: true
     office-home: C:/Program Files/LibreOffice
     max-tasks-per-process: 10
-    port-numbers: 2002,2003
+    port-numbers: 2002,2003，2003,2004
 
 # API Keys
 fastgpt:

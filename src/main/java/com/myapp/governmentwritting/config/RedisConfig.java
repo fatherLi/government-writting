@@ -6,11 +6,27 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import java.time.Duration;
+import io.lettuce.core.cluster.ClusterClientOptions;
+import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisClusterConfiguration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisPassword;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
+
 
 import java.time.Duration;
 
@@ -67,5 +83,45 @@ public class RedisConfig {
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(config)
                 .build();
+    }
+
+
+    @Bean
+    public LettuceConnectionFactory redisConnectionFactory(RedisProperties redisProperties) {
+        // 1. 集群配置
+        RedisClusterConfiguration clusterConfig = new RedisClusterConfiguration(
+                redisProperties.getCluster().getNodes());
+        clusterConfig.setPassword(RedisPassword.of(redisProperties.getPassword()));
+        clusterConfig.setMaxRedirects(redisProperties.getCluster().getMaxRedirects());
+
+        // 2. 开启自适应拓扑刷新（重点：解决节点切换连接失败问题）
+        ClusterTopologyRefreshOptions refreshOptions = ClusterTopologyRefreshOptions.builder()
+                .enableAdaptiveRefreshTrigger(
+                        ClusterTopologyRefreshOptions.RefreshTrigger.MOVED_REDIRECT,
+                        ClusterTopologyRefreshOptions.RefreshTrigger.PERSISTENT_RECONNECTS)
+                .adaptiveRefreshTriggersTimeout(Duration.ofSeconds(30))
+                .build();
+
+        ClusterClientOptions clientOptions = ClusterClientOptions.builder()
+                .topologyRefreshOptions(refreshOptions)
+                .build();
+
+        // 3. 配置 Lettuce 客户端
+        LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+                .poolConfig(getPoolConfig(redisProperties.getLettuce().getPool()))
+                .clientOptions(clientOptions)
+                .build();
+
+        return new LettuceConnectionFactory(clusterConfig, clientConfig);
+    }
+
+
+
+    private GenericObjectPoolConfig getPoolConfig(RedisProperties.Pool pool) {
+        GenericObjectPoolConfig config = new GenericObjectPoolConfig();
+        config.setMaxTotal(pool.getMaxActive());
+        config.setMaxIdle(pool.getMaxIdle());
+        config.setMinIdle(pool.getMinIdle());
+        return config;
     }
 }

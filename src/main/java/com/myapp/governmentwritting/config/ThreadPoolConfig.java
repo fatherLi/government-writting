@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -69,9 +70,9 @@ public class ThreadPoolConfig {
     public ThreadPoolTaskExecutor heavyCpuExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         // 核心线程数：严格控制在 2！只允许 2 个 Word 同时转 PDF
-        executor.setCorePoolSize(2);
+        executor.setCorePoolSize(4);
         // 最大线程数：极限情况最多允许 4 个外部进程同时运行
-        executor.setMaxPoolSize(4);
+        executor.setMaxPoolSize(8);
         // 队列：放大到 200。保证 200 个人同时点转换，都不会报错，只是后面的人要多转圈等待十几秒
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("LibreOffice-");

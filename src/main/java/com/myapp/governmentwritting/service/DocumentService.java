@@ -14,4 +14,6 @@ public interface DocumentService {
     List<Document> getRecentDocuments(Long userId);
     void addRecentDocument(Long userId, Long documentId);
     Document getDocumentById(Long documentId, Long userId);
+    Document createDocument(Document document, Long userId);
+    boolean updateDocument(Document document, Long userId);
 }

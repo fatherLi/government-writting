@@ -9,6 +9,7 @@ import com.myapp.governmentwritting.service.AiService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -36,6 +37,8 @@ public class AiServiceImpl implements AiService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
+    private final ThreadPoolTaskExecutor asyncExecutor;
+
     @Value("${fastgpt.url}")
     private String fastgptUrl;
 
@@ -48,10 +51,11 @@ public class AiServiceImpl implements AiService {
     @Value("${volcengine.key}")
     private String volcengineKey;
 
-    public AiServiceImpl(WebClient webClient, AiChatLogMapper aiChatLogMapper, RedisTemplate<String, Object> redisTemplate) {
+    public AiServiceImpl(WebClient webClient, AiChatLogMapper aiChatLogMapper, RedisTemplate<String, Object> redisTemplate, ThreadPoolTaskExecutor asyncExecutor) {
         this.webClient = webClient;
         this.aiChatLogMapper = aiChatLogMapper;
         this.redisTemplate = redisTemplate;
+        this.asyncExecutor = asyncExecutor;
     }
 
     /**
@@ -123,15 +127,20 @@ public class AiServiceImpl implements AiService {
                 })
                 .doFinally(signalType -> {
                     if (fullResponse.length() > 0) {
-                        AiChatLog log = new AiChatLog();
-                        log.setUserId(userId != null ? userId : 0L);
-                        log.setQuery(query);
-                        log.setResponse(fullResponse.toString());
-                        try {
-                            aiChatLogMapper.insert(log);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        // 核心改造：将耗时的 JDBC 落盘操作丢入异步线程池
+                        // 这样 Netty 回调线程可以瞬间执行完毕并被释放去处理下一个用户的请求
+                        asyncExecutor.execute(() -> {
+                            AiChatLog log = new AiChatLog();
+                            log.setUserId(userId != null ? userId : 0L);
+                            log.setQuery(query);
+                            log.setResponse(fullResponse.toString());
+                            try {
+                                aiChatLogMapper.insert(log);
+                            } catch (Exception e) {
+                                // 生产环境绝不能用 printStackTrace，改用 log 记录
+                                log.setResponse(e.getMessage());
+                            }
+                        });
                     }
                 })
                 .onErrorResume(e -> {

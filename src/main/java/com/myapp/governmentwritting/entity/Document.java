@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @TableName("document")
-public class Document {
+public class Document  {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;

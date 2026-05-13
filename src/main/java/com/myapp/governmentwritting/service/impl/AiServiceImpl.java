@@ -6,6 +6,7 @@ import com.myapp.governmentwritting.common.Result;
 import com.myapp.governmentwritting.entity.AiChatLog;
 import com.myapp.governmentwritting.mapper.AiChatLogMapper;
 import com.myapp.governmentwritting.service.AiService;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
@@ -39,6 +40,9 @@ public class AiServiceImpl implements AiService {
 
     private final ThreadPoolTaskExecutor asyncExecutor;
 
+
+    private final RedissonClient redissonClient;
+
     @Value("${fastgpt.url}")
     private String fastgptUrl;
 
@@ -51,11 +55,12 @@ public class AiServiceImpl implements AiService {
     @Value("${volcengine.key}")
     private String volcengineKey;
 
-    public AiServiceImpl(WebClient webClient, AiChatLogMapper aiChatLogMapper, RedisTemplate<String, Object> redisTemplate, ThreadPoolTaskExecutor asyncExecutor) {
+    public AiServiceImpl(WebClient webClient, AiChatLogMapper aiChatLogMapper, RedisTemplate<String, Object> redisTemplate, ThreadPoolTaskExecutor asyncExecutor, RedissonClient redissonClient) {
         this.webClient = webClient;
         this.aiChatLogMapper = aiChatLogMapper;
         this.redisTemplate = redisTemplate;
         this.asyncExecutor = asyncExecutor;
+        this.redissonClient = redissonClient;
     }
 
     /**
@@ -162,10 +167,14 @@ public class AiServiceImpl implements AiService {
         String md5Hash = DigestUtils.md5DigestAsHex(content.getBytes(StandardCharsets.UTF_8));
         String cacheKey = "ai_proofread:" + md5Hash;
         
-        Object cachedResult = redisTemplate.opsForValue().get(cacheKey);
+//        Object cachedResult = redisTemplate.opsForValue().get(cacheKey);
+        org.redisson.api.RBucket<Result<String>> bucket = redissonClient.getBucket(cacheKey);
+
+
+        // 1. 读取缓存
+        Result<String> cachedResult = bucket.get();
         if (cachedResult != null) {
-            // Redis 中存在缓存，直接以 Mono 形式返回，极大节省大模型 API 费用与时间
-            return Mono.just((Result<String>) cachedResult);
+            return Mono.just(cachedResult);
         }
 
         // 构建请求体，火山引擎所需的入参格式较为简明，仅需传入 text 即可

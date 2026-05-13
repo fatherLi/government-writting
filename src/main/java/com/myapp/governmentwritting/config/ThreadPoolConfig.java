@@ -21,6 +21,7 @@ public class ThreadPoolConfig {
 
     public static final String ASYNC_EXECUTOR = "asyncExecutor";
     public static final String HEAVY_CPU_EXECUTOR = "heavyCpuExecutor";
+    public static final String DATA_EXECUTOR = "dataExecutor";
 
     /**
      * 1. 核心业务异步线程池 (IO 密集型，用于数据库落盘等)
@@ -77,6 +78,25 @@ public class ThreadPoolConfig {
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("LibreOffice-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+        return executor;
+    }
+
+
+    /**
+     * @description: websocket线程池，用于处理websocket消息，实时推送数据给前端
+     * @author: Leung Chiu Wai
+     * @date: 2025-08-27 21:40:55
+     * @return: ThreadPoolTaskExecutor 严格限流的异步执行器
+     */
+    @Bean(DATA_EXECUTOR)
+    public ThreadPoolTaskExecutor dataExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(1000);
+        executor.setThreadNamePrefix("Data-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

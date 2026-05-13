@@ -91,15 +91,16 @@ public class DocumentServiceImpl implements DocumentService {
         try {
             String key = "recent_docs_zset:" + userId;
             // 1. 从 Redis ZSet 中获取分数（时间戳）最高的前 10 个 documentId
-            java.util.Set<Object> docIds = redisTemplate.opsForZSet().reverseRange(key, 0, 9);
+//            java.util.Set<Object> docIds = redisTemplate.opsForZSet().reverseRange(key, 0, 9);
+            org.redisson.api.RScoredSortedSet<Long> recentDocs = redissonClient.getScoredSortedSet(key);
 
-            if (docIds == null || docIds.isEmpty()) {
+            // 获取分数最高（最新）的前 10 个 ID
+            java.util.Collection<Long> documentIds = recentDocs.valueRangeReversed(0, 9);
+
+            if (documentIds == null || documentIds.isEmpty()) {
                 return Collections.emptyList();
             }
 
-            List<Long> documentIds = docIds.stream()
-                    .map(id -> Long.valueOf(id.toString()))
-                    .collect(Collectors.toList());
 
             // 2. 批量查库获取详细信息
             List<Document> docs = documentMapper.selectBatchIds(documentIds);
@@ -141,8 +142,14 @@ public class DocumentServiceImpl implements DocumentService {
             // 1. 将当前访问记录以当前时间戳作为分数，存入 ZSet
             redisTemplate.opsForZSet().add(key, documentId.toString(), currentTime);
 
-            // 2. 优化：限制 ZSet 大小，只保留最近的 50 条记录
-            redisTemplate.opsForZSet().removeRange(key, 0, -51);
+            // 2. 优化：ZSet 对象
+            org.redisson.api.RScoredSortedSet<Long> recentDocs = redissonClient.getScoredSortedSet(key);
+
+            // (1). 添加记录（直接传入分数和对象）
+            recentDocs.add(currentTime, documentId);
+
+            // (2). 截断保留前 50 条 (移除排名在 0 到 倒数第51位 之间的旧元素)
+            recentDocs.removeRangeByRank(0, -51);
 
             // 3. 将极其耗时的数据库 insert 操作丢入专门的 IO 线程池异步执行，主线程直接返回！
             asyncExecutor.execute(() -> {

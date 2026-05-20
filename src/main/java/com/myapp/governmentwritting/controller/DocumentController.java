@@ -4,6 +4,7 @@ import com.myapp.governmentwritting.common.Result;
 import com.myapp.governmentwritting.common.SecurityUtils;
 import com.myapp.governmentwritting.entity.Document;
 import com.myapp.governmentwritting.service.DocumentService;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
